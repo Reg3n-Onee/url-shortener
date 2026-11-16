@@ -1,0 +1,57 @@
+services:
+  postgres-shortener:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shortener
+    volumes:
+      - shortener_pgdata:/var/lib/postgresql/data
+
+  postgres-analytics:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: analytics
+    volumes:
+      - analytics_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+
+  shortener-service:
+    build: ./shortener-service
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres-shortener:5432/shortener
+      REDIS_HOST: redis
+    depends_on:
+      - postgres-shortener
+      - redis
+    ports:
+      - "8001:8000"
+
+  analytics-service:
+    build: ./analytics-service
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres-analytics:5432/analytics
+      REDIS_HOST: redis
+    depends_on:
+      - postgres-analytics
+      - redis
+    ports:
+      - "8002:8000"
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - shortener-service
+      - analytics-service
+
+volumes:
+  shortener_pgdata:
+  analytics_pgdata:
